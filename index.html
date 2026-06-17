@@ -50,36 +50,6 @@
         } catch (e) {}
     }
 
-    function playFanfare() {
-        if (!audioCtx) return;
-        try {
-            const now = audioCtx.currentTime;
-            const notes = [
-                { freq: 523.25, time: 0.0, dur: 0.1 },
-                { freq: 659.25, time: 0.1, dur: 0.1 },
-                { freq: 783.99, time: 0.2, dur: 0.1 },
-                { freq: 1046.50, time: 0.3, dur: 0.2 },
-                { freq: 880.00, time: 0.5, dur: 0.1 },
-                { freq: 1046.50, time: 0.6, dur: 0.6 }
-            ];
-            notes.forEach(note => {
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(note.freq, now + note.time);
-                gain.gain.setValueAtTime(0, now + note.time);
-                gain.gain.linearRampToValueAtTime(0.12, now + note.time + 0.02);
-                gain.gain.setValueAtTime(0.12, now + note.time + note.dur - 0.02);
-                gain.gain.linearRampToValueAtTime(0, now + note.time + note.dur);
-                const filter = audioCtx.createBiquadFilter();
-                filter.type = 'lowpass';
-                filter.frequency.setValueAtTime(2000, now + note.time);
-                osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
-                osc.start(now + note.time); osc.stop(now + note.time + note.dur);
-            });
-        } catch (e) { console.log(e); }
-    }
-
     function loadData() {
         const s = document.createElement('script'); s.src = GAS_URL; document.body.appendChild(s);
     }
@@ -145,7 +115,7 @@
             if (minDist < 0.08) { if (lastPeg !== pegIdx) { playTickSound(); lastPeg = pegIdx; } pin.style.transform = `translateX(-50%) rotate(${(1 - (minDist / 0.08)) * 35}deg)`; } else { pin.style.transform = "translateX(-50%) rotate(0deg)"; }
             render();
             if (t < 1) requestAnimationFrame(animate);
-            else { isSpinning = false; document.getElementById('spin-btn').disabled = false; pin.style.transform = "translateX(-50%) rotate(0deg)"; launchCelebration(); //playFanfare(); setTimeout(() => alert(`おめでとう！ 今日の装備は「 ${itemsArray[winIdx].name} 」になりました！`), 200); }
+            else { isSpinning = false; document.getElementById('spin-btn').disabled = false; pin.style.transform = "translateX(-50%) rotate(0deg)"; launchCelebration(); setTimeout(() => alert(`おめでとう！ 今日の装備は「 ${itemsArray[winIdx].name} 」になりました！`), 200); }
         }
         requestAnimationFrame(animate);
     }
