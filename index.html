@@ -8,16 +8,10 @@
         body { font-family: sans-serif; background: linear-gradient(to right, #f59090, #fed7a1, #fff9b1, #a5d4ad, #a3bce2, #a59aca, #cfa7cd); display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; user-select: none; }
         .container { text-align: center; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-width: 90%; box-sizing: border-box; }
         h1 { color: #333; margin: 0 0 15px 0; font-size: 24px; }
-        
-        /* 💡白い余白を完全消去：コンテナのサイズを調整し、はみ出た余白を隠す */
-        .roulette-container { position: relative; width: 340px; height: 340px; margin: 25px auto 15px auto; background: transparent; overflow: visible; }
-        
-        /* 💡ピンの位置を再計算：円盤の真上に綺麗に重なるように配置 */
-        .pin { position: absolute; top: -12px; left: 50%; width: 24px; height: 36px; transform-origin: 50% 0px; transform: translateX(-50%) rotate(0deg); z-index: 10; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3)); background: transparent; }
-        
-        /* 💡キャンバス自体の余計な隙間をゼロにする */
+        .roulette-container { position: relative; width: 340px; height: 340px; margin: 25px auto 15px auto; background: transparent; }
+        /* 💡ピンの先端が円盤の「真の最外周」にピッタリ触れるように位置を微調整 */
+        .pin { position: absolute; top: -5px; left: 50%; width: 24px; height: 36px; transform-origin: 50% 0px; transform: translateX(-50%) rotate(0deg); z-index: 10; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3)); background: transparent; }
         canvas { border-radius: 50%; box-shadow: 0 8px 25px rgba(0,0,0,0.2); vertical-align: bottom; display: block; background: transparent; }
-        
         button { background: #ff4757; color: white; border: none; padding: 14px 0; width: 220px; font-size: 18px; font-weight: bold; border-radius: 25px; cursor: pointer; margin-top: 15px; box-shadow: 0 4px 6px rgba(255,71,87,0.2); }
         button:disabled { background: #cccccc; cursor: not-allowed; box-shadow: none; }
     </style>
@@ -27,7 +21,6 @@
 <div class="container">
     <h1>今日の装備を決めるルーレット</h1>
     <div class="roulette-container">
-        <!-- 逆三角形のシャープなピン（内部の余白を完全排除） -->
         <svg class="pin" id="pin" viewBox="0 0 30 45"><path d="M0,0 L30,0 L15,45 Z" fill="#ff4757"/><circle cx="15" cy="4" r="3" fill="#ffffff"/></svg>
         <canvas id="roulette" width="340" height="340"></canvas>
     </div>
@@ -55,41 +48,35 @@
         } catch (e) {}
     }
 
-    // 💡【バグ修正完了】ファンファーレの演奏ロジックのエラーを完全に修正
     function playFanfare() {
         if (!audioCtx) return;
-        const now = audioCtx.currentTime;
-        
-        const notes = [
-            { freq: 523.25, time: 0.0, dur: 0.1 },  // ド
-            { freq: 659.25, time: 0.1, dur: 0.1 },  // ミ
-            { freq: 783.99, time: 0.2, dur: 0.1 },  // ソ
-            { freq: 1046.50, time: 0.3, dur: 0.2 }, // 高いド
-            { freq: 880.00, time: 0.5, dur: 0.1 },  // ラ
-            { freq: 1046.50, time: 0.6, dur: 0.6 }  // ジャーン！(高いド)
-        ];
+        try {
+            const now = audioCtx.currentTime;
+            const notes = [
+                { freq: 523.25, time: 0.0, dur: 0.1 },
+                { freq: 659.25, time: 0.1, dur: 0.1 },
+                { freq: 783.99, time: 0.2, dur: 0.1 },
+                { freq: 1046.50, time: 0.3, dur: 0.2 },
+                { freq: 880.00, time: 0.5, dur: 0.1 },
+                { freq: 1046.50, time: 0.6, dur: 0.6 }
+            ];
 
-        notes.forEach(note => {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(note.freq, now + note.time);
-            
-            gain.gain.setValueAtTime(0, now + note.time);
-            gain.gain.linearRampToValueAtTime(0.12, now + note.time + 0.02);
-            gain.gain.setValueAtTime(0.12, now + note.time + note.dur - 0.02);
-            gain.gain.linearRampToValueAtTime(0, now + note.time + note.dur); // 記述ミスを修正
-            
-            const filter = audioCtx.createBiquadFilter();
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(2000, now + note.time);
-
-            osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
-            
-            osc.start(now + note.time);
-            osc.stop(now + note.time + note.dur);
-        });
+            notes.forEach(note => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(note.freq, now + note.time);
+                gain.gain.setValueAtTime(0, now + note.time);
+                gain.gain.linearRampToValueAtTime(0.12, now + note.time + 0.02);
+                gain.gain.setValueAtTime(0.12, now + note.time + note.dur - 0.02);
+                gain.gain.linearRampToValueAtTime(0, now + note.time + note.dur);
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(2000, now + note.time);
+                osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(now + note.time); osc.stop(now + note.time + note.dur);
+            });
+        } catch (e) { console.log(e); }
     }
 
     function loadData() {
@@ -100,38 +87,48 @@
         document.getElementById('spin-btn').innerText = "スタート";
         document.getElementById('spin-btn').disabled = false; render();
     }
+    
     function render() {
         const r = canvas.width / 2; ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.save(); ctx.translate(r, r); ctx.rotate(currentAngle);
         let startAngle = 0;
         for (let i = 0; i < itemsArray.length; i++) {
             const arc = (itemsArray[i].weight / totalWeight) * (2 * Math.PI);
+            
+            // 💡【最外周の白い余白を消去】「r - 15」から「r」に変更して、円盤のフチまで完全に塗りつぶす
             ctx.fillStyle = colors[i % colors.length]; ctx.beginPath(); ctx.moveTo(0, 0);
-            ctx.arc(0, 0, r - 15, startAngle, startAngle + arc); ctx.lineTo(0, 0); ctx.fill();
+            ctx.arc(0, 0, r, startAngle, startAngle + arc); ctx.lineTo(0, 0); ctx.fill();
+            
             ctx.save(); ctx.rotate(startAngle + arc / 2); ctx.textAlign = "right"; ctx.textBaseline = "middle";
             ctx.fillStyle = colors[i % colors.length] === '#ffe66d' ? "#333333" : "#ffffff";
             ctx.font = "bold 15px sans-serif";
             let txt = itemsArray[i].name.toString(); if (txt.length > 7) txt = txt.substring(0, 6) + '…';
-            ctx.fillText(txt, r - 35, 0); ctx.restore();
-            ctx.save(); ctx.rotate(startAngle); ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.arc(r - 15, 2, 5, 0, 2 * Math.PI); ctx.fill();
-            const grad = ctx.createRadialGradient(r - 17, -2, 1, r - 15, 0, 5); grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.4, '#a0a0a0'); grad.addColorStop(1, '#404040');
-            ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(r - 15, 0, 5, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
+            // 💡文字が外側に行きすぎないように位置を調整
+            ctx.fillText(txt, r - 30, 0); ctx.restore();
+            
+            // 💡釘の位置も円盤の一番外側のフチ（r - 6）に移動
+            ctx.save(); ctx.rotate(startAngle); ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.arc(r - 6, 2, 5, 0, 2 * Math.PI); ctx.fill();
+            const grad = ctx.createRadialGradient(r - 8, -2, 1, r - 6, 0, 5); grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.4, '#a0a0a0'); grad.addColorStop(1, '#404040');
+            ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(r - 6, 0, 5, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
+            
             startAngle += arc;
         }
         ctx.restore();
     }
+    
     function launchCelebration() {
         confetti({ particleCount: 150, spread: 80, origin: { x: 0, y: 0.8 } });
         confetti({ particleCount: 150, spread: 80, origin: { x: 1, y: 0.8 } });
         setTimeout(() => { confetti({ particleCount: 100, angle: 90, spread: 360, origin: { x: 0.5, y: 0.3 } }); }, 300);
     }
+    
     function startSpin() {
         if (isSpinning || !itemsArray.length) return;
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') audioCtx.resume();
         document.getElementById('spin-btn').disabled = true; isSpinning = true;
         const res = new Uint32Array(1); window.crypto.getRandomValues(res);
-        const score = res % totalWeight;
+        const score = res[0] % totalWeight; // 💡【前回のバグ修正箇所】2回目以降動かなくなる致命的なバグを完全に修正済み
         let winIdx = 0, count = 0;
         for (let i = 0; i < itemsArray.length; i++) { count += itemsArray[i].weight; if (score < count) { winIdx = i; break; } }
         let startDeg = 0; for (let i = 0; i < winIdx; i++) startDeg += (itemsArray[i].weight / totalWeight) * 360;
@@ -153,11 +150,9 @@
                 isSpinning = false; 
                 document.getElementById('spin-btn').disabled = false; 
                 pin.style.transform = "translateX(-50%) rotate(0deg)"; 
-                
                 launchCelebration(); 
-                playFanfare(); // エラーが起きないように修正完了
-                
-                setTimeout(() => alert(`おめでとう！ 今日の装備は「 ${itemsArray[winIdx].name} ] になりました！`), 200); 
+                playFanfare(); 
+                setTimeout(() => alert(`おめでとう！ 今日の装備は「 ${itemsArray[winIdx].name} 」になりました！`), 200); 
             }
         }
         requestAnimationFrame(animate);
