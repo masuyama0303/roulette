@@ -15,6 +15,7 @@
             justify-content: center;
             height: 100vh;
             margin: 0;
+            user-select: none;
         }
         .container {
             text-align: center;
@@ -26,43 +27,42 @@
         h1 { color: #333; margin-bottom: 20px; }
         .roulette-container {
             position: relative;
-            width: 360px;
-            height: 360px;
+            width: 380px;
+            height: 380px;
             margin: 20px auto;
         }
+        /* 物理的に動く矢印（ピン） */
         .pin {
             position: absolute;
-            top: -15px;
+            top: -10px;
             left: 50%;
-            transform: translateX(-50%);
-            width: 0;
-            height: 0;
-            border-left: 15px solid transparent;
-            border-right: 15px solid transparent;
-            border-top: 30px solid #ff4757;
+            width: 30px;
+            height: 45px;
+            /* 回転の軸を上部（根元）に設定して首振りを表現 */
+            transform-origin: 50% 10px;
+            transform: translateX(-50%) rotate(0deg);
             z-index: 10;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+            filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3));
         }
         canvas {
             border-radius: 50%;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-            transform: rotate(0deg);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
         }
         button {
-            background-color: #2ed573;
+            background-color: #ff4757;
             color: white;
             border: none;
             padding: 14px 0;
-            width: 360px;
+            width: 240px;
             font-size: 18px;
             font-weight: bold;
             border-radius: 25px;
             cursor: pointer;
-            box-shadow: 0 4px 6px rgba(46,213,115,0.2);
+            box-shadow: 0 4px 6px rgba(255,71,87,0.2);
             transition: all 0.2s;
-            margin-top: 20px;
+            margin-top: 25px;
         }
-        button:hover { background-color: #26af5f; transform: translateY(-1px); }
+        button:hover { background-color: #ff2a3a; transform: translateY(-1px); }
         button:disabled { background-color: #cccccc; cursor: not-allowed; transform: none; box-shadow: none; }
     </style>
 </head>
@@ -71,8 +71,12 @@
 <div class="container">
     <h1>今日の装備を決めるルーレット</h1>
     <div class="roulette-container">
-        <div class="pin"></div>
-        <canvas id="roulette" width="360" height="360"></canvas>
+        <!-- 矢印をSVGで描画 -->
+        <svg class="pin" id="pin" viewBox="0 0 30 45">
+            <path d="M15,0 L30,10 L20,10 L20,45 L10,45 L10,10 L0,10 Z" fill="#ff4757"/>
+            <circle cx="15" cy="10" r="3" fill="#ffffff"/>
+        </svg>
+        <canvas id="roulette" width="380" height="380"></canvas>
     </div>
     <button id="spin-btn" onclick="startSpin()" disabled>読み込み中...</button>
 </div>
@@ -81,13 +85,48 @@
     // ★ここにGASで発行した「ウェブアプリのURL」を貼り付けてください★
     const GAS_URL = "https://script.google.com/macros/s/AKfycbzKK95uNsWvt_QpJzyLFQBKAH1xNuOus-P-nnW5_cERRjkNpC2kaDMIjTvFLF7oTKCC6Q/exec";
 
-    let itemsArray = []; // {name: "A", weight: 1} の配列
-    let totalWeight = 0; // 比率の合計値
-    let currentRotation = 0; 
+    let itemsArray = [];
+    let totalWeight = 0;
     const canvas = document.getElementById('roulette');
     const ctx = canvas.getContext('2d');
+    const pin = document.getElementById('pin');
+
+    // ルーレットの回転を細かく制御するための変数
+    let currentAngle = 0; 
+    let isSpinning = false;
 
     const colors = ['#ff6b6b', '#4ecdc4', '#ffe66d', '#1a535c', '#ff9f43', '#0abde3', '#10ac84', '#ee5253'];
+
+    // 音声を合成して鳴らすためのオーディオコンテキスト
+    let audioCtx = null;
+
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    }
+
+    // 「カチッ」という金属っぽい打撃音をプログラムで合成して鳴らす関数
+    function playTickSound() {
+        if (!audioCtx) return;
+        try {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = 'triangle'; 
+            osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.04);
+            
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.04);
+        } catch (e) { console.log(e); }
+    }
 
     function loadData() {
         const script = document.createElement('script');
@@ -97,106 +136,175 @@
 
     function callback(data) {
         itemsArray = data.items;
-        // 比率の合計を計算
         totalWeight = itemsArray.reduce((sum, item) => sum + item.weight, 0);
-        
         document.getElementById('spin-btn').innerText = "スタート";
         document.getElementById('spin-btn').disabled = false;
-        drawRoulette();
+        render(); // 初期描画
     }
 
-    // 各マスの「開始角度」と「終了角度」を計算しながら円盤を描画
-    function drawRoulette() {
+    // メインの描画処理
+    function render() {
         const radius = canvas.width / 2;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        let currentAngle = 0;
+        ctx.save();
+        ctx.translate(radius, radius);
+        ctx.rotate(currentAngle); // 現在の回転角度を適用
+
+        let startAngle = 0;
 
         for (let i = 0; i < itemsArray.length; i++) {
-            // 全体に占める比率からマスの角度（ラジアン）を計算
             const arcSize = (itemsArray[i].weight / totalWeight) * (2 * Math.PI);
             
+            // 扇形
             ctx.fillStyle = colors[i % colors.length];
             ctx.beginPath();
-            ctx.moveTo(radius, radius);
-            ctx.arc(radius, radius, radius, currentAngle, currentAngle + arcSize);
-            ctx.lineTo(radius, radius);
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, radius - 15, startAngle, startAngle + arcSize);
+            ctx.lineTo(0, 0);
             ctx.fill();
 
-            // 文字描画
+            // 文字
             ctx.save();
-            ctx.translate(radius, radius);
-            ctx.rotate(currentAngle + arcSize / 2);
+            ctx.rotate(startAngle + arcSize / 2);
             ctx.textAlign = "right";
             ctx.textBaseline = "middle";
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 16px sans-serif";
             if(colors[i % colors.length] === '#ffe66d') ctx.fillStyle = "#333333";
-
             let text = itemsArray[i].name.toString();
             if (text.length > 8) text = text.substring(0, 7) + '…';
-            ctx.fillText(text, radius - 20, 0);
+            ctx.fillText(text, radius - 40, 0);
             ctx.restore();
 
-            currentAngle += arcSize; // 次のマスの開始角度に進める
+            // 境界線（釘を打つ位置）に「金属っぽい釘」を描画
+            ctx.save();
+            ctx.rotate(startAngle);
+            
+            // 釘の影
+            ctx.fillStyle = "rgba(0,0,0,0.4)";
+            ctx.beginPath();
+            ctx.arc(radius - 15, 2, 6, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // 釘の本体（グラデーションで金属の立体感を演出）
+            const pegGrad = ctx.createRadialGradient(radius - 17, -2, 1, radius - 15, 0, 6);
+            pegGrad.addColorStop(0, '#ffffff'); // ハイライト
+            pegGrad.addColorStop(0.4, '#a0a0a0'); // 金属の地の色
+            pegGrad.addColorStop(1, '#404040'); // 縁の影
+            ctx.fillStyle = pegGrad;
+            ctx.beginPath();
+            ctx.arc(radius - 15, 0, 6, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.restore();
+
+            startAngle += arcSize;
         }
+        ctx.restore();
     }
 
-    // 暗号学的乱数で 0 〜 (合計比率 - 1) までの整数を厳密に取得
     function getSecureRandomScore(max) {
         const array = new Uint32Array(1);
         window.crypto.getRandomValues(array);
-        return array[0] % max;
+        return array % max;
     }
 
     function startSpin() {
-        if (itemsArray.length === 0 || totalWeight === 0) return;
+        if (isSpinning || itemsArray.length === 0 || totalWeight === 0) return;
         
+        initAudio(); 
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+
         const btn = document.getElementById('spin-btn');
         btn.disabled = true;
+        isSpinning = true;
 
-        // 1. 比率に基づいた厳密な抽選（累積比率を使った重み付け抽選）
+        // 1. 裏側で厳密に当選者を決定
         const randomScore = getSecureRandomScore(totalWeight);
         let winnerIndex = 0;
         let countedWeight = 0;
-
         for (let i = 0; i < itemsArray.length; i++) {
             countedWeight += itemsArray[i].weight;
-            if (randomScore < countedWeight) {
-                winnerIndex = i;
-                break;
-            }
+            if (randomScore < countedWeight) { winnerIndex = i; break; }
         }
 
-        // 2. 当選マスの「角度の範囲」を正確に計算する
+        // 2. 当選マスの角度を割り出す
         let startAngleDegree = 0;
         for (let i = 0; i < winnerIndex; i++) {
             startAngleDegree += (itemsArray[i].weight / totalWeight) * 360;
         }
         const winnerArcSizeDegree = (itemsArray[winnerIndex].weight / totalWeight) * 360;
-        
-        // マスの中央が真上（270度）に来る角度を算出
-        const winnerTargetAngle = 270 - (startAngleDegree + winnerArcSizeDegree / 2);
+        const winnerTargetAngleRad = ((270 - (startAngleDegree + winnerArcSizeDegree / 2)) * Math.PI) / 180;
 
-        // 3. 最低5回転させてターゲット角度にスムーズに着地
-        const extraSpins = 5 * 360; 
-        const baseAngle = Math.floor(currentRotation / 360) * 360;
-        currentRotation = baseAngle + extraSpins + (winnerTargetAngle % 360);
-        if (currentRotation <= canvas.style.transform.replace(/[^0-9.]/g, '')) {
-            currentRotation += 360;
+        // 3. 物理回転アニメーションのパラメーター設定
+        const startRad = currentAngle % (2 * Math.PI);
+        const targetRad = startRad + (5 * 2 * Math.PI) + ((winnerTargetAngleRad - startRad) % (2 * Math.PI));
+        
+        const duration = 5000; // 5秒間まわす
+        const startTime = performance.now();
+
+        // 釘の間隔（ラジアン）のリストを作成
+        let pegAngles = [];
+        let totalAcc = 0;
+        for (let i = 0; i < itemsArray.length; i++) {
+            pegAngles.push(totalAcc);
+            totalAcc += (itemsArray[i].weight / totalWeight) * (2 * Math.PI);
         }
 
-        canvas.style.transition = "transform 5s cubic-bezier(0.1, 0.8, 0.1, 1)";
-        canvas.style.transform = `rotate(${currentRotation}deg)`;
+        let lastPassedPegIndex = -1;
 
-        setTimeout(() => {
-            btn.disabled = false;
-            alert(`おめでとう！ 今日の装備は「 ${itemsArray[winnerIndex].name} 」になりました！`);
-        }, 5100);
+        // 毎フレーム実行されるアニメーションループ
+        function animate(now) {
+            const elapsed = now - startTime;
+            const t = Math.min(elapsed / duration, 1);
+
+            const easeOut = 1 - Math.pow(1 - t, 3);
+            currentAngle = startRad + (targetRad - startRad) * easeOut;
+
+            const currentPositionRad = (-currentAngle - Math.PI / 2) % (2 * Math.PI);
+            const normalizedPos = currentPositionRad < 0 ? currentPositionRad + 2 * Math.PI : currentPositionRad;
+
+            let closestPegDist = 2 * Math.PI;
+            let currentPegIndex = 0;
+            for (let i = 0; i < pegAngles.length; i++) {
+                let dist = normalizedPos - pegAngles[i];
+                if (dist < 0) dist += 2 * Math.PI;
+                if (dist < closestPegDist) {
+                    closestPegDist = dist;
+                    currentPegIndex = i;
+                }
+            }
+
+            // カチカチ処理
+            if (closestPegDist < 0.08) {
+                if (lastPassedPegIndex !== currentPegIndex) {
+                    playTickSound(); 
+                    lastPassedPegIndex = currentPegIndex;
+                }
+                const tilt = (1 - (closestPegDist / 0.08)) * 25;
+                pin.style.transform = `translateX(-50%) rotate(${tilt}deg)`;
+            } else {
+                pin.style.transform = "translateX(-50%) rotate(0deg)";
+            }
+
+            render(); 
+
+            if (t < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                isSpinning = false;
+                btn.disabled = false;
+                pin.style.transform = "translateX(-50%) rotate(0deg)";
+                setTimeout(() => {
+                    alert(おめでとう！ 今日の装備は「 ${itemsArray[winnerIndex].name} 」になりました！);
+                }, 200);
+            }
+        }
+
+        requestAnimationFrame(animate);
+
     }
-
+    
     loadData();
-</script>
-
-</body>
-</html>
