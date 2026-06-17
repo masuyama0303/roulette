@@ -9,8 +9,9 @@
         .container { text-align: center; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-width: 90%; box-sizing: border-box; }
         h1 { color: #333; margin: 0 0 15px 0; font-size: 24px; }
         .roulette-container { position: relative; width: 340px; height: 340px; margin: 25px auto 15px auto; background: transparent; }
-        /* 💡ピンの先端が円盤の「真の最外周」にピッタリ触れるように位置を微調整 */
-        .pin { position: absolute; top: -5px; left: 50%; width: 24px; height: 36px; transform-origin: 50% 0px; transform: translateX(-50%) rotate(0deg); z-index: 10; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3)); background: transparent; }
+        
+        /* 💡ピンの配置を少し上（top: -22px）に引き上げ、深く刺さりすぎないように修正 */
+        .pin { position: absolute; top: -22px; left: 50%; width: 20px; height: 38px; transform-origin: 50% 0px; transform: translateX(-50%) rotate(0deg); z-index: 10; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3)); background: transparent; }
         canvas { border-radius: 50%; box-shadow: 0 8px 25px rgba(0,0,0,0.2); vertical-align: bottom; display: block; background: transparent; }
         button { background: #ff4757; color: white; border: none; padding: 14px 0; width: 220px; font-size: 18px; font-weight: bold; border-radius: 25px; cursor: pointer; margin-top: 15px; box-shadow: 0 4px 6px rgba(255,71,87,0.2); }
         button:disabled { background: #cccccc; cursor: not-allowed; box-shadow: none; }
@@ -21,7 +22,8 @@
 <div class="container">
     <h1>今日の装備を決めるルーレット</h1>
     <div class="roulette-container">
-        <svg class="pin" id="pin" viewBox="0 0 30 45"><path d="M0,0 L30,0 L15,45 Z" fill="#ff4757"/><circle cx="15" cy="4" r="3" fill="#ffffff"/></svg>
+        <!-- 💡ピンをより細長く、スタイリッシュな形にSVGを調整 -->
+        <svg class="pin" id="pin" viewBox="0 0 30 55"><path d="M0,0 L30,0 L15,55 Z" fill="#ff4757"/><circle cx="15" cy="4" r="3" fill="#ffffff"/></svg>
         <canvas id="roulette" width="340" height="340"></canvas>
     </div>
     <button id="spin-btn" onclick="startSpin()" disabled>読み込み中...</button>
@@ -60,7 +62,6 @@
                 { freq: 880.00, time: 0.5, dur: 0.1 },
                 { freq: 1046.50, time: 0.6, dur: 0.6 }
             ];
-
             notes.forEach(note => {
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
@@ -94,8 +95,6 @@
         let startAngle = 0;
         for (let i = 0; i < itemsArray.length; i++) {
             const arc = (itemsArray[i].weight / totalWeight) * (2 * Math.PI);
-            
-            // 💡【最外周の白い余白を消去】「r - 15」から「r」に変更して、円盤のフチまで完全に塗りつぶす
             ctx.fillStyle = colors[i % colors.length]; ctx.beginPath(); ctx.moveTo(0, 0);
             ctx.arc(0, 0, r, startAngle, startAngle + arc); ctx.lineTo(0, 0); ctx.fill();
             
@@ -103,10 +102,8 @@
             ctx.fillStyle = colors[i % colors.length] === '#ffe66d' ? "#333333" : "#ffffff";
             ctx.font = "bold 15px sans-serif";
             let txt = itemsArray[i].name.toString(); if (txt.length > 7) txt = txt.substring(0, 6) + '…';
-            // 💡文字が外側に行きすぎないように位置を調整
             ctx.fillText(txt, r - 30, 0); ctx.restore();
             
-            // 💡釘の位置も円盤の一番外側のフチ（r - 6）に移動
             ctx.save(); ctx.rotate(startAngle); ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.arc(r - 6, 2, 5, 0, 2 * Math.PI); ctx.fill();
             const grad = ctx.createRadialGradient(r - 8, -2, 1, r - 6, 0, 5); grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.4, '#a0a0a0'); grad.addColorStop(1, '#404040');
             ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(r - 6, 0, 5, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
@@ -128,7 +125,7 @@
         if (audioCtx.state === 'suspended') audioCtx.resume();
         document.getElementById('spin-btn').disabled = true; isSpinning = true;
         const res = new Uint32Array(1); window.crypto.getRandomValues(res);
-        const score = res[0] % totalWeight; // 💡【前回のバグ修正箇所】2回目以降動かなくなる致命的なバグを完全に修正済み
+        const score = res % totalWeight;
         let winIdx = 0, count = 0;
         for (let i = 0; i < itemsArray.length; i++) { count += itemsArray[i].weight; if (score < count) { winIdx = i; break; } }
         let startDeg = 0; for (let i = 0; i < winIdx; i++) startDeg += (itemsArray[i].weight / totalWeight) * 360;
@@ -143,17 +140,12 @@
             let norm = (-currentAngle - Math.PI / 2) % (2 * Math.PI); if (norm < 0) norm += 2 * Math.PI;
             let minDist = 2 * Math.PI, pegIdx = 0;
             for (let i = 0; i < pegs.length; i++) { let d = norm - pegs[i]; if (d < 0) d += 2 * Math.PI; if (d < minDist) { minDist = d; pegIdx = i; } }
-            if (minDist < 0.08) { if (lastPeg !== pegIdx) { playTickSound(); lastPeg = pegIdx; } pin.style.transform = `translateX(-50%) rotate(${(1 - (minDist / 0.08)) * 22}deg)`; } else { pin.style.transform = "translateX(-50%) rotate(0deg)"; }
+            
+            // 💡カチカチ演出の強化：ピンの最大傾きを「22度」から「35度」に引き上げて大きく動くように変更
+            if (minDist < 0.08) { if (lastPeg !== pegIdx) { playTickSound(); lastPeg = pegIdx; } pin.style.transform = `translateX(-50%) rotate(${(1 - (minDist / 0.08)) * 35}deg)`; } else { pin.style.transform = "translateX(-50%) rotate(0deg)"; }
             render();
             if (t < 1) requestAnimationFrame(animate);
-            else { 
-                isSpinning = false; 
-                document.getElementById('spin-btn').disabled = false; 
-                pin.style.transform = "translateX(-50%) rotate(0deg)"; 
-                launchCelebration(); 
-                playFanfare(); 
-                setTimeout(() => alert(`おめでとう！ 今日の装備は「 ${itemsArray[winIdx].name} 」になりました！`), 200); 
-            }
+            else { isSpinning = false; document.getElementById('spin-btn').disabled = false; pin.style.transform = "translateX(-50%) rotate(0deg)"; launchCelebration(); //playFanfare(); setTimeout(() => alert(`おめでとう！ 今日の装備は「 ${itemsArray[winIdx].name} 」になりました！`), 200); }
         }
         requestAnimationFrame(animate);
     }
