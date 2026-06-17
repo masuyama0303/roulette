@@ -19,7 +19,11 @@
 <div class="container">
     <h1>今日の装備を決めるルーレット</h1>
     <div class="roulette-container">
-        <svg class="pin" id="pin" viewBox="0 0 30 45"><path d="M15,0 L30,10 L20,10 L20,45 L10,45 L10,10 L0,10 Z" fill="#ff4757"/><circle cx="15" cy="10" r="3" fill="#ffffff"/></svg>
+        <!-- シャープで細長い逆三角形の矢印に変更 -->
+        <svg class="pin" id="pin" viewBox="0 0 30 45">
+            <path d="M0,0 L30,0 L15,45 Z" fill="#ff4757"/>
+            <circle cx="15" cy="5" r="3" fill="#ffffff"/>
+        </svg>
         <canvas id="roulette" width="340" height="340"></canvas>
     </div>
     <button id="spin-btn" onclick="startSpin()" disabled>読み込み中...</button>
