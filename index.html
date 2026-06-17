@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>厳密な確率変動ルーレット</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(to right,#f59090,#fcd7a1,#fff9b1,#a5d4ad,#a3bce2,#a59aca,#cfa7cd);
+            /* background-color: #f0f2f5; */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; margin-bottom: 20px; }
+        .roulette-container {
+            position: relative;
+            width: 360px;
+            height: 360px;
+            margin: 20px auto;
+        }
+        .pin {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 30px solid #ff4757;
+            z-index: 10;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        }
+        canvas {
+            border-radius: 50%;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+            transform: rotate(0deg);
+        }
+        button {
+            background-color: #2ed573;
+            color: white;
+            border: none;
+            padding: 14px 50px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(46,213,115,0.2);
+            transition: all 0.2s;
+            margin-top: 20px;
+        }
+        button:hover { background-color: #26af5f; transform: translateY(-1px); }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; transform: none; box-shadow: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>確率変動ルーレット</h1>
+    <div class="roulette-container">
+        <div class="pin"></div>
+        <canvas id="roulette" width="360" height="360"></canvas>
+    </div>
+    <button id="spin-btn" onclick="startSpin()" disabled>読み込み中...</button>
+</div>
+
+<script>
+    // ★ここにGASで発行した「ウェブアプリのURL」を貼り付けてください★
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbyHMBp_qG4kNroS4L_JUN2oNoYoc0eJrBYz7H92nE7jiiZyAw6OdRlQt-8R7e41adgzkw/exec";
+
+    let itemsArray = []; // {name: "A", weight: 1} の配列
+    let totalWeight = 0; // 比率の合計値
+    let currentRotation = 0; 
+    const canvas = document.getElementById('roulette');
+    const ctx = canvas.getContext('2d');
+
+    const colors = ['#ff6b6b', '#4ecdc4', '#ffe66d', '#1a535c', '#ff9f43', '#0abde3', '#10ac84', '#ee5253'];
+
+    function loadData() {
+        const script = document.createElement('script');
+        script.src = `${GAS_URL}`;
+        document.body.appendChild(script);
+    }
+
+    function callback(data) {
+        itemsArray = data.items;
+        // 比率の合計を計算
+        totalWeight = itemsArray.reduce((sum, item) => sum + item.weight, 0);
+        
+        document.getElementById('spin-btn').innerText = "スタート";
+        document.getElementById('spin-btn').disabled = false;
+        drawRoulette();
+    }
+
+    // 各マスの「開始角度」と「終了角度」を計算しながら円盤を描画
+    function drawRoulette() {
+        const radius = canvas.width / 2;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        let currentAngle = 0;
+
+        for (let i = 0; i < itemsArray.length; i++) {
+            // 全体に占める比率からマスの角度（ラジアン）を計算
+            const arcSize = (itemsArray[i].weight / totalWeight) * (2 * Math.PI);
+            
+            ctx.fillStyle = colors[i % colors.length];
+            ctx.beginPath();
+            ctx.moveTo(radius, radius);
+            ctx.arc(radius, radius, radius, currentAngle, currentAngle + arcSize);
+            ctx.lineTo(radius, radius);
+            ctx.fill();
+
+            // 文字描画
+            ctx.save();
+            ctx.translate(radius, radius);
+            ctx.rotate(currentAngle + arcSize / 2);
+            ctx.textAlign = "right";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 16px sans-serif";
+            if(colors[i % colors.length] === '#ffe66d') ctx.fillStyle = "#333333";
+
+            let text = itemsArray[i].name.toString();
+            if (text.length > 8) text = text.substring(0, 7) + '…';
+            ctx.fillText(text, radius - 20, 0);
+            ctx.restore();
+
+            currentAngle += arcSize; // 次のマスの開始角度に進める
+        }
+    }
+
+    // 暗号学的乱数で 0 〜 (合計比率 - 1) までの整数を厳密に取得
+    function getSecureRandomScore(max) {
+        const array = new Uint32Array(1);
+        window.crypto.getRandomValues(array);
+        return array[0] % max;
+    }
+
+    function startSpin() {
+        if (itemsArray.length === 0 || totalWeight === 0) return;
+        
+        const btn = document.getElementById('spin-btn');
+        btn.disabled = true;
+
+        // 1. 比率に基づいた厳密な抽選（累積比率を使った重み付け抽選）
+        const randomScore = getSecureRandomScore(totalWeight);
+        let winnerIndex = 0;
+        let countedWeight = 0;
+
+        for (let i = 0; i < itemsArray.length; i++) {
+            countedWeight += itemsArray[i].weight;
+            if (randomScore < countedWeight) {
+                winnerIndex = i;
+                break;
+            }
+        }
+
+        // 2. 当選マスの「角度の範囲」を正確に計算する
+        let startAngleDegree = 0;
+        for (let i = 0; i < winnerIndex; i++) {
+            startAngleDegree += (itemsArray[i].weight / totalWeight) * 360;
+        }
+        const winnerArcSizeDegree = (itemsArray[winnerIndex].weight / totalWeight) * 360;
+        
+        // マスの中央が真上（270度）に来る角度を算出
+        const winnerTargetAngle = 270 - (startAngleDegree + winnerArcSizeDegree / 2);
+
+        // 3. 最低5回転させてターゲット角度にスムーズに着地
+        const extraSpins = 5 * 360; 
+        const baseAngle = Math.floor(currentRotation / 360) * 360;
+        currentRotation = baseAngle + extraSpins + (winnerTargetAngle % 360);
+        if (currentRotation <= canvas.style.transform.replace(/[^0-9.]/g, '')) {
+            currentRotation += 360;
+        }
+
+        canvas.style.transition = "transform 5s cubic-bezier(0.1, 0.8, 0.1, 1)";
+        canvas.style.transform = `rotate(${currentRotation}deg)`;
+
+        setTimeout(() => {
+            btn.disabled = false;
+            alert(`おめでとう！ 今日の装備は「 ${itemsArray[winnerIndex].name} 」になりました！`);
+        }, 5100);
+    }
+
+    loadData();
+</script>
+
+</body>
+</html>
