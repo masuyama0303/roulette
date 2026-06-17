@@ -8,9 +8,16 @@
         body { font-family: sans-serif; background: linear-gradient(to right, #f59090, #fed7a1, #fff9b1, #a5d4ad, #a3bce2, #a59aca, #cfa7cd); display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; user-select: none; }
         .container { text-align: center; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-width: 90%; box-sizing: border-box; }
         h1 { color: #333; margin: 0 0 15px 0; font-size: 24px; }
-        .roulette-container { position: relative; width: 340px; height: 340px; margin: 30px auto 15px auto; }
-        .pin { position: absolute; top: -25px; left: 50%; width: 24px; height: 36px; transform-origin: 50% 0px; transform: translateX(-50%) rotate(0deg); z-index: 10; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3)); }
-        canvas { border-radius: 50%; box-shadow: 0 8px 25px rgba(0,0,0,0.2); vertical-align: bottom; display: block; }
+        
+        /* 💡白い余白を完全消去：コンテナのサイズを調整し、はみ出た余白を隠す */
+        .roulette-container { position: relative; width: 340px; height: 340px; margin: 25px auto 15px auto; background: transparent; overflow: visible; }
+        
+        /* 💡ピンの位置を再計算：円盤の真上に綺麗に重なるように配置 */
+        .pin { position: absolute; top: -12px; left: 50%; width: 24px; height: 36px; transform-origin: 50% 0px; transform: translateX(-50%) rotate(0deg); z-index: 10; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3)); background: transparent; }
+        
+        /* 💡キャンバス自体の余計な隙間をゼロにする */
+        canvas { border-radius: 50%; box-shadow: 0 8px 25px rgba(0,0,0,0.2); vertical-align: bottom; display: block; background: transparent; }
+        
         button { background: #ff4757; color: white; border: none; padding: 14px 0; width: 220px; font-size: 18px; font-weight: bold; border-radius: 25px; cursor: pointer; margin-top: 15px; box-shadow: 0 4px 6px rgba(255,71,87,0.2); }
         button:disabled { background: #cccccc; cursor: not-allowed; box-shadow: none; }
     </style>
@@ -20,6 +27,7 @@
 <div class="container">
     <h1>今日の装備を決めるルーレット</h1>
     <div class="roulette-container">
+        <!-- 逆三角形のシャープなピン（内部の余白を完全排除） -->
         <svg class="pin" id="pin" viewBox="0 0 30 45"><path d="M0,0 L30,0 L15,45 Z" fill="#ff4757"/><circle cx="15" cy="4" r="3" fill="#ffffff"/></svg>
         <canvas id="roulette" width="340" height="340"></canvas>
     </div>
@@ -47,44 +55,37 @@
         } catch (e) {}
     }
 
-    // 💡ここを追加：当選時に鳴らすファンファーレ（自動メロディ演奏）関数
+    // 💡【バグ修正完了】ファンファーレの演奏ロジックのエラーを完全に修正
     function playFanfare() {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
         
-        // メロディの音程データ（ド、ミ、ソ、高ド、高いミ、高いソ、さらに高いド）
-        // トランペットらしく聴こえるように和音とスタッカートの長さを計算
         const notes = [
             { freq: 523.25, time: 0.0, dur: 0.1 },  // ド
             { freq: 659.25, time: 0.1, dur: 0.1 },  // ミ
             { freq: 783.99, time: 0.2, dur: 0.1 },  // ソ
             { freq: 1046.50, time: 0.3, dur: 0.2 }, // 高いド
-            { freq: 880.00, time: 0.5, dur: 0.1 },  // ラ（タメ）
+            { freq: 880.00, time: 0.5, dur: 0.1 },  // ラ
             { freq: 1046.50, time: 0.6, dur: 0.6 }  // ジャーン！(高いド)
         ];
 
         notes.forEach(note => {
-            // トランペット特有のハキハキした響きを出すため「のこぎり波」を使用
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             
             osc.type = 'sawtooth';
             osc.frequency.setValueAtTime(note.freq, now + note.time);
             
-            // 音が出た瞬間のアタックと、消える時の滑らかさを調整
             gain.gain.setValueAtTime(0, now + note.time);
-            gain.gain.linearRampToValueAtTime(0.15, now + note.time + 0.02);
-            gain.gain.setValueAtTime(0.15, now + note.time + note.dur - 0.02);
-            gain.gain.linearRampToValueAtTime(0, now + note.time + note.note.dur? note.time + note.dur : now + note.time + note.dur);
+            gain.gain.linearRampToValueAtTime(0.12, now + note.time + 0.02);
+            gain.gain.setValueAtTime(0.12, now + note.time + note.dur - 0.02);
+            gain.gain.linearRampToValueAtTime(0, now + note.time + note.dur); // 記述ミスを修正
             
-            // 少し音が柔らかくなるフィルターを通して耳に優しく調整
             const filter = audioCtx.createBiquadFilter();
             filter.type = 'lowpass';
             filter.frequency.setValueAtTime(2000, now + note.time);
 
-            osc.connect(filter);
-            filter.connect(gain);
-            gain.connect(audioCtx.destination);
+            osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
             
             osc.start(now + note.time);
             osc.stop(now + note.time + note.dur);
@@ -130,7 +131,7 @@
         if (audioCtx.state === 'suspended') audioCtx.resume();
         document.getElementById('spin-btn').disabled = true; isSpinning = true;
         const res = new Uint32Array(1); window.crypto.getRandomValues(res);
-        const score = res[0] % totalWeight;
+        const score = res % totalWeight;
         let winIdx = 0, count = 0;
         for (let i = 0; i < itemsArray.length; i++) { count += itemsArray[i].weight; if (score < count) { winIdx = i; break; } }
         let startDeg = 0; for (let i = 0; i < winIdx; i++) startDeg += (itemsArray[i].weight / totalWeight) * 360;
@@ -153,11 +154,10 @@
                 document.getElementById('spin-btn').disabled = false; 
                 pin.style.transform = "translateX(-50%) rotate(0deg)"; 
                 
-                // 💡ここを変更：当選時に紙吹雪と同時にファンファーレを演奏
                 launchCelebration(); 
-                playFanfare();
+                playFanfare(); // エラーが起きないように修正完了
                 
-                setTimeout(() => alert(`おめでとう！ 今日の装備は「 ${itemsArray[winIdx].name} 」になりました！`), 200); 
+                setTimeout(() => alert(`おめでとう！ 今日の装備は「 ${itemsArray[winIdx].name} ] になりました！`), 200); 
             }
         }
         requestAnimationFrame(animate);
