@@ -5,287 +5,106 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>今日の装備を決めよう!!</title>
     <style>
-        body {
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(to right, #f59090, #fed7a1, #fff9b1, #a5d4ad, #a3bce2, #a59aca, #cfa7cd);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            user-select: none;
-        }
-        .container {
-            text-align: center;
-            background: white;
-            padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
-        h1 { color: #333; margin-bottom: 20px; }
-        .roulette-container {
-            position: relative;
-            width: 380px;
-            height: 380px;
-            margin: 20px auto;
-        }
-        .pin {
-            position: absolute;
-            top: -10px;
-            left: 50%;
-            width: 30px;
-            height: 45px;
-            transform-origin: 50% 10px;
-            transform: translateX(-50%) rotate(0deg);
-            z-index: 10;
-            filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3));
-        }
-        canvas {
-            border-radius: 50%;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
-        }
-        button {
-            background-color: #ff4757;
-            color: white;
-            border: none;
-            padding: 14px 0;
-            width: 240px;
-            font-size: 18px;
-            font-weight: bold;
-            border-radius: 25px;
-            cursor: pointer;
-            box-shadow: 0 4px 6px rgba(255,71,87,0.2);
-            transition: all 0.2s;
-            margin-top: 25px;
-        }
-        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        body { font-family: sans-serif; background: linear-gradient(to right, #f59090, #fed7a1, #fff9b1, #a5d4ad, #a3bce2, #a59aca, #cfa7cd); display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; user-select: none; }
+        .container { text-align: center; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-width: 90%; box-sizing: border-box; }
+        h1 { color: #333; margin: 0 0 15px 0; font-size: 24px; }
+        .roulette-container { position: relative; width: 340px; height: 340px; margin: 15px auto; }
+        .pin { position: absolute; top: -10px; left: 50%; width: 26px; height: 40px; transform-origin: 50% 10px; transform: translateX(-50%) rotate(0deg); z-index: 10; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.3)); }
+        canvas { border-radius: 50%; box-shadow: 0 8px 25px rgba(0,0,0,0.2); vertical-align: bottom; }
+        button { background: #ff4757; color: white; border: none; padding: 14px 0; width: 220px; font-size: 18px; font-weight: bold; border-radius: 25px; cursor: pointer; margin-top: 15px; box-shadow: 0 4px 6px rgba(255,71,87,0.2); }
+        button:disabled { background: #cccccc; cursor: not-allowed; box-shadow: none; }
     </style>
 </head>
 <body>
-
 <div class="container">
-    <h1>今日の装備を決めよう!!</h1>
+    <h1>今日の装備を決めるルーレット</h1>
     <div class="roulette-container">
-        <svg class="pin" id="pin" viewBox="0 0 30 45">
-            <path d="M15,0 L30,10 L20,10 L20,45 L10,45 L10,10 L0,10 Z" fill="#ff4757"/>
-            <circle cx="15" cy="10" r="3" fill="#ffffff"/>
-        </svg>
-        <canvas id="roulette" width="380" height="380"></canvas>
+        <svg class="pin" id="pin" viewBox="0 0 30 45"><path d="M15,0 L30,10 L20,10 L20,45 L10,45 L10,10 L0,10 Z" fill="#ff4757"/><circle cx="15" cy="10" r="3" fill="#ffffff"/></svg>
+        <canvas id="roulette" width="340" height="340"></canvas>
     </div>
     <button id="spin-btn" onclick="startSpin()" disabled>読み込み中...</button>
 </div>
-
 <script>
     // ★ここにGASで発行した「ウェブアプリのURL」を貼り付けてください★
     const GAS_URL = "https://script.google.com/macros/s/AKfycbzKK95uNsWvt_QpJzyLFQBKAH1xNuOus-P-nnW5_cERRjkNpC2kaDMIjTvFLF7oTKCC6Q/exec";
 
-    let itemsArray = [];
-    let totalWeight = 0;
-    const canvas = document.getElementById('roulette');
-    const ctx = canvas.getContext('2d');
-    const pin = document.getElementById('pin');
-
-    let currentAngle = 0; 
-    let isSpinning = false;
-
+    let itemsArray = [], totalWeight = 0, currentAngle = 0, isSpinning = false, audioCtx = null;
+    const canvas = document.getElementById('roulette'), ctx = canvas.getContext('2d'), pin = document.getElementById('pin');
     const colors = ['#ff6b6b', '#4ecdc4', '#ffe66d', '#1a535c', '#ff9f43', '#0abde3', '#10ac84', '#ee5253'];
-    let audioCtx = null;
-
-    function initAudio() {
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-    }
 
     function playTickSound() {
         if (!audioCtx) return;
         try {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            
-            osc.type = 'triangle'; 
+            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            osc.type = 'triangle';
             osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
             osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.04);
-            
             gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
-            
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.04);
-        } catch (e) { console.log(e); }
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.04);
+        } catch (e) {}
     }
-
     function loadData() {
-        const script = document.createElement('script');
-        script.src = GAS_URL;
-        document.body.appendChild(script);
+        const s = document.createElement('script'); s.src = GAS_URL; document.body.appendChild(s);
     }
-
-    function callback(data) {
-        itemsArray = data.items;
-        totalWeight = itemsArray.reduce((sum, item) => sum + item.weight, 0);
+    function callback(d) {
+        itemsArray = d.items; totalWeight = itemsArray.reduce((sum, i) => sum + i.weight, 0);
         document.getElementById('spin-btn').innerText = "スタート";
-        document.getElementById('spin-btn').disabled = false;
-        render();
+        document.getElementById('spin-btn').disabled = false; render();
     }
-
     function render() {
-        const radius = canvas.width / 2;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        ctx.save();
-        ctx.translate(radius, radius);
-        ctx.rotate(currentAngle);
-
+        const r = canvas.width / 2; ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.save(); ctx.translate(r, r); ctx.rotate(currentAngle);
         let startAngle = 0;
-
         for (let i = 0; i < itemsArray.length; i++) {
-            const arcSize = (itemsArray[i].weight / totalWeight) * (2 * Math.PI);
-            
-            ctx.fillStyle = colors[i % colors.length];
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.arc(0, 0, radius - 15, startAngle, startAngle + arcSize);
-            ctx.lineTo(0, 0);
-            ctx.fill();
-
-            ctx.save();
-            ctx.rotate(startAngle + arcSize / 2);
-            ctx.textAlign = "right";
-            ctx.textBaseline = "middle";
+            const arc = (itemsArray[i].weight / totalWeight) * (2 * Math.PI);
+            ctx.fillStyle = colors[i % colors.length]; ctx.beginPath(); ctx.moveTo(0, 0);
+            ctx.arc(0, 0, r - 15, startAngle, startAngle + arc); ctx.lineTo(0, 0); ctx.fill();
+            ctx.save(); ctx.rotate(startAngle + arc / 2); ctx.textAlign = "right"; ctx.textBaseline = "middle";
             ctx.fillStyle = colors[i % colors.length] === '#ffe66d' ? "#333333" : "#ffffff";
-            ctx.font = "bold 16px sans-serif";
-            let text = itemsArray[i].name.toString();
-            if (text.length > 8) text = text.substring(0, 7) + '…';
-            ctx.fillText(text, radius - 40, 0);
-            ctx.restore();
-
-            ctx.save();
-            ctx.rotate(startAngle);
-            
-            ctx.fillStyle = "rgba(0,0,0,0.4)";
-            ctx.beginPath();
-            ctx.arc(radius - 15, 2, 6, 0, 2 * Math.PI);
-            ctx.fill();
-
-            const pegGrad = ctx.createRadialGradient(radius - 17, -2, 1, radius - 15, 0, 6);
-            pegGrad.addColorStop(0, '#ffffff');
-            pegGrad.addColorStop(0.4, '#a0a0a0');
-            pegGrad.addColorStop(1, '#404040');
-            ctx.fillStyle = pegGrad;
-            ctx.beginPath();
-            ctx.arc(radius - 15, 0, 6, 0, 2 * Math.PI);
-            ctx.fill();
-            ctx.restore();
-
-            startAngle += arcSize;
+            ctx.font = "bold 15px sans-serif";
+            let txt = itemsArray[i].name.toString(); if (txt.length > 7) txt = txt.substring(0, 6) + '…';
+            ctx.fillText(txt, r - 35, 0); ctx.restore();
+            ctx.save(); ctx.rotate(startAngle); ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.arc(r - 15, 2, 5, 0, 2 * Math.PI); ctx.fill();
+            const grad = ctx.createRadialGradient(r - 17, -2, 1, r - 15, 0, 5); grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.4, '#a0a0a0'); grad.addColorStop(1, '#404040');
+            ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(r - 15, 0, 5, 0, 2 * Math.PI); ctx.fill(); ctx.restore();
+            startAngle += arc;
         }
         ctx.restore();
     }
-
-    function getSecureRandomScore(max) {
-        const array = new Uint32Array(1);
-        window.crypto.getRandomValues(array);
-        return array[0] % max;
-    }
-
     function startSpin() {
-        if (isSpinning || itemsArray.length === 0 || totalWeight === 0) return;
+        if (isSpinning || !itemsArray.length) return;
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        document.getElementById('spin-btn').disabled = true; isSpinning = true;
         
-        initAudio();
-        if (audioCtx && audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
-
-        const btn = document.getElementById('spin-btn');
-        btn.disabled = true;
-        isSpinning = true;
-
-        const randomScore = getSecureRandomScore(totalWeight);
-        let winnerIndex = 0;
-        let countedWeight = 0;
-        for (let i = 0; i < itemsArray.length; i++) {
-            countedWeight += itemsArray[i].weight;
-            if (randomScore < countedWeight) { winnerIndex = i; break; }
-        }
-
-        let startAngleDegree = 0;
-        for (let i = 0; i < winnerIndex; i++) {
-            startAngleDegree += (itemsArray[i].weight / totalWeight) * 360;
-        }
-        const winnerArcSizeDegree = (itemsArray[winnerIndex].weight / totalWeight) * 360;
-        const winnerTargetAngleRad = ((270 - (startAngleDegree + winnerArcSizeDegree / 2)) * Math.PI) / 180;
-
-        const startRad = currentAngle % (2 * Math.PI);
-        const targetRad = startRad + (5 * 2 * Math.PI) + ((winnerTargetAngleRad - startRad) % (2 * Math.PI));
+        // 【修正点】暗号学的乱数配列から[0]番目の数値を取り出して計算に使用する
+        const res = new Uint32Array(1); window.crypto.getRandomValues(res);
+        const score = res[0] % totalWeight;
         
-        const duration = 5000;
-        const startTime = performance.now();
-
-        let pegAngles = [];
-        let totalAcc = 0;
-        for (let i = 0; i < itemsArray.length; i++) {
-            pegAngles.push(totalAcc);
-            totalAcc += (itemsArray[i].weight / totalWeight) * (2 * Math.PI);
-        }
-
-        let lastPassedPegIndex = -1;
-
+        let winIdx = 0, count = 0;
+        for (let i = 0; i < itemsArray.length; i++) { count += itemsArray[i].weight; if (score < count) { winIdx = i; break; } }
+        let startDeg = 0; for (let i = 0; i < winIdx; i++) startDeg += (itemsArray[i].weight / totalWeight) * 360;
+        const winDeg = (itemsArray[winIdx].weight / totalWeight) * 360;
+        const targetRad = (currentAngle % (2 * Math.PI)) + (5 * 2 * Math.PI) + ((((270 - (startDeg + winDeg / 2)) * Math.PI) / 180 - (currentAngle % (2 * Math.PI))) % (2 * Math.PI));
+        const duration = 5000, startTime = performance.now(), startRad = currentAngle;
+        let pegs = [], acc = 0; for (let i = 0; i < itemsArray.length; i++) { pegs.push(acc); acc += (itemsArray[i].weight / totalWeight) * (2 * Math.PI); }
+        let lastPeg = -1;
         function animate(now) {
-            const elapsed = now - startTime;
-            const t = Math.min(elapsed / duration, 1);
-
-            const easeOut = 1 - Math.pow(1 - t, 3);
-            currentAngle = startRad + (targetRad - startRad) * easeOut;
-
-            const currentPositionRad = (-currentAngle - Math.PI / 2) % (2 * Math.PI);
-            let normalizedPos = currentPositionRad < 0 ? currentPositionRad + 2 * Math.PI : currentPositionRad;
-
-            let closestPegDist = 2 * Math.PI;
-            let currentPegIndex = 0;
-            for (let i = 0; i < pegAngles.length; i++) {
-                let dist = normalizedPos - pegAngles[i];
-                if (dist < 0) dist += 2 * Math.PI;
-                if (dist < closestPegDist) {
-                    closestPegDist = dist;
-                    currentPegIndex = i;
-                }
-            }
-
-            if (closestPegDist < 0.08) {
-                if (lastPassedPegIndex !== currentPegIndex) {
-                    playTickSound();
-                    lastPassedPegIndex = currentPegIndex;
-                }
-                const tilt = (1 - (closestPegDist / 0.08)) * 25;
-                pin.style.transform = `translateX(-50%) rotate(${tilt}deg)`;
-            } else {
-                pin.style.transform = "translateX(-50%) rotate(0deg)";
-            }
-
+            const t = Math.min((now - startTime) / duration, 1), ease = 1 - Math.pow(1 - t, 3);
+            currentAngle = startRad + (targetRad - startRad) * ease;
+            let norm = (-currentAngle - Math.PI / 2) % (2 * Math.PI); if (norm < 0) norm += 2 * Math.PI;
+            let minDist = 2 * Math.PI, pegIdx = 0;
+            for (let i = 0; i < pegs.length; i++) { let d = norm - pegs[i]; if (d < 0) d += 2 * Math.PI; if (d < minDist) { minDist = d; pegIdx = i; } }
+            if (minDist < 0.08) { if (lastPeg !== pegIdx) { playTickSound(); lastPeg = pegIdx; } pin.style.transform = `translateX(-50%) rotate(${(1 - (minDist / 0.08)) * 22}deg)`; } else { pin.style.transform = "translateX(-50%) rotate(0deg)"; }
             render();
-
-            if (t < 1) {
-                requestAnimationFrame(animate);
-            } else {
-                isSpinning = false;
-                btn.disabled = false;
-                pin.style.transform = "translateX(-50%) rotate(0deg)";
-                setTimeout(() => {
-                    alert(`おめでとう！今日の装備は「 ${itemsArray[winnerIndex].name} 」になりました！`);
-                }, 200);
-            }
+            if (t < 1) requestAnimationFrame(animate);
+            else { isSpinning = false; document.getElementById('spin-btn').disabled = false; pin.style.transform = "translateX(-50%) rotate(0deg)"; setTimeout(() => alert(`おめでとう！ 今日の装備は「 ${itemsArray[winIdx].name} 」になりました！`), 200); }
         }
-
         requestAnimationFrame(animate);
     }
-
     loadData();
 </script>
-
 </body>
 </html>
