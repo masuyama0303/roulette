@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>今日の装備を決めよう！！</title>
+    <title>今日の装備を決めよう!!</title>
     <style>
         body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(to right,#f59090,#fcd7a1,#fff9b1,#a5d4ad,#a3bce2,#a59aca,#cfa7cd);
-            /* background-color: #f0f2f5; */
+            background: linear-gradient(to right, #f59090, #fed7a1, #fff9b1, #a5d4ad, #a3bce2, #a59aca, #cfa7cd);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -31,14 +30,12 @@
             height: 380px;
             margin: 20px auto;
         }
-        /* 物理的に動く矢印（ピン） */
         .pin {
             position: absolute;
             top: -10px;
             left: 50%;
             width: 30px;
             height: 45px;
-            /* 回転の軸を上部（根元）に設定して首振りを表現 */
             transform-origin: 50% 10px;
             transform: translateX(-50%) rotate(0deg);
             z-index: 10;
@@ -62,16 +59,14 @@
             transition: all 0.2s;
             margin-top: 25px;
         }
-        button:hover { background-color: #ff2a3a; transform: translateY(-1px); }
-        button:disabled { background-color: #cccccc; cursor: not-allowed; transform: none; box-shadow: none; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>今日の装備を決めるルーレット</h1>
+    <h1>今日の装備を決めよう!!</h1>
     <div class="roulette-container">
-        <!-- 矢印をSVGで描画 -->
         <svg class="pin" id="pin" viewBox="0 0 30 45">
             <path d="M15,0 L30,10 L20,10 L20,45 L10,45 L10,10 L0,10 Z" fill="#ff4757"/>
             <circle cx="15" cy="10" r="3" fill="#ffffff"/>
@@ -91,13 +86,10 @@
     const ctx = canvas.getContext('2d');
     const pin = document.getElementById('pin');
 
-    // ルーレットの回転を細かく制御するための変数
     let currentAngle = 0; 
     let isSpinning = false;
 
     const colors = ['#ff6b6b', '#4ecdc4', '#ffe66d', '#1a535c', '#ff9f43', '#0abde3', '#10ac84', '#ee5253'];
-
-    // 音声を合成して鳴らすためのオーディオコンテキスト
     let audioCtx = null;
 
     function initAudio() {
@@ -106,7 +98,6 @@
         }
     }
 
-    // 「カチッ」という金属っぽい打撃音をプログラムで合成して鳴らす関数
     function playTickSound() {
         if (!audioCtx) return;
         try {
@@ -130,7 +121,7 @@
 
     function loadData() {
         const script = document.createElement('script');
-        script.src = `${GAS_URL}`;
+        script.src = GAS_URL;
         document.body.appendChild(script);
     }
 
@@ -139,24 +130,22 @@
         totalWeight = itemsArray.reduce((sum, item) => sum + item.weight, 0);
         document.getElementById('spin-btn').innerText = "スタート";
         document.getElementById('spin-btn').disabled = false;
-        render(); // 初期描画
+        render();
     }
 
-    // メインの描画処理
     function render() {
         const radius = canvas.width / 2;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         ctx.save();
         ctx.translate(radius, radius);
-        ctx.rotate(currentAngle); // 現在の回転角度を適用
+        ctx.rotate(currentAngle);
 
         let startAngle = 0;
 
         for (let i = 0; i < itemsArray.length; i++) {
             const arcSize = (itemsArray[i].weight / totalWeight) * (2 * Math.PI);
             
-            // 扇形
             ctx.fillStyle = colors[i % colors.length];
             ctx.beginPath();
             ctx.moveTo(0, 0);
@@ -164,34 +153,29 @@
             ctx.lineTo(0, 0);
             ctx.fill();
 
-            // 文字
             ctx.save();
             ctx.rotate(startAngle + arcSize / 2);
             ctx.textAlign = "right";
             ctx.textBaseline = "middle";
-            ctx.fillStyle = "#ffffff";
+            ctx.fillStyle = colors[i % colors.length] === '#ffe66d' ? "#333333" : "#ffffff";
             ctx.font = "bold 16px sans-serif";
-            if(colors[i % colors.length] === '#ffe66d') ctx.fillStyle = "#333333";
             let text = itemsArray[i].name.toString();
             if (text.length > 8) text = text.substring(0, 7) + '…';
             ctx.fillText(text, radius - 40, 0);
             ctx.restore();
 
-            // 境界線（釘を打つ位置）に「金属っぽい釘」を描画
             ctx.save();
             ctx.rotate(startAngle);
             
-            // 釘の影
             ctx.fillStyle = "rgba(0,0,0,0.4)";
             ctx.beginPath();
             ctx.arc(radius - 15, 2, 6, 0, 2 * Math.PI);
             ctx.fill();
 
-            // 釘の本体（グラデーションで金属の立体感を演出）
             const pegGrad = ctx.createRadialGradient(radius - 17, -2, 1, radius - 15, 0, 6);
-            pegGrad.addColorStop(0, '#ffffff'); // ハイライト
-            pegGrad.addColorStop(0.4, '#a0a0a0'); // 金属の地の色
-            pegGrad.addColorStop(1, '#404040'); // 縁の影
+            pegGrad.addColorStop(0, '#ffffff');
+            pegGrad.addColorStop(0.4, '#a0a0a0');
+            pegGrad.addColorStop(1, '#404040');
             ctx.fillStyle = pegGrad;
             ctx.beginPath();
             ctx.arc(radius - 15, 0, 6, 0, 2 * Math.PI);
@@ -206,13 +190,13 @@
     function getSecureRandomScore(max) {
         const array = new Uint32Array(1);
         window.crypto.getRandomValues(array);
-        return array % max;
+        return array[0] % max;
     }
 
     function startSpin() {
         if (isSpinning || itemsArray.length === 0 || totalWeight === 0) return;
         
-        initAudio(); 
+        initAudio();
         if (audioCtx && audioCtx.state === 'suspended') {
             audioCtx.resume();
         }
@@ -221,7 +205,6 @@
         btn.disabled = true;
         isSpinning = true;
 
-        // 1. 裏側で厳密に当選者を決定
         const randomScore = getSecureRandomScore(totalWeight);
         let winnerIndex = 0;
         let countedWeight = 0;
@@ -230,7 +213,6 @@
             if (randomScore < countedWeight) { winnerIndex = i; break; }
         }
 
-        // 2. 当選マスの角度を割り出す
         let startAngleDegree = 0;
         for (let i = 0; i < winnerIndex; i++) {
             startAngleDegree += (itemsArray[i].weight / totalWeight) * 360;
@@ -238,14 +220,12 @@
         const winnerArcSizeDegree = (itemsArray[winnerIndex].weight / totalWeight) * 360;
         const winnerTargetAngleRad = ((270 - (startAngleDegree + winnerArcSizeDegree / 2)) * Math.PI) / 180;
 
-        // 3. 物理回転アニメーションのパラメーター設定
         const startRad = currentAngle % (2 * Math.PI);
         const targetRad = startRad + (5 * 2 * Math.PI) + ((winnerTargetAngleRad - startRad) % (2 * Math.PI));
         
-        const duration = 5000; // 5秒間まわす
+        const duration = 5000;
         const startTime = performance.now();
 
-        // 釘の間隔（ラジアン）のリストを作成
         let pegAngles = [];
         let totalAcc = 0;
         for (let i = 0; i < itemsArray.length; i++) {
@@ -255,7 +235,6 @@
 
         let lastPassedPegIndex = -1;
 
-        // 毎フレーム実行されるアニメーションループ
         function animate(now) {
             const elapsed = now - startTime;
             const t = Math.min(elapsed / duration, 1);
@@ -264,7 +243,7 @@
             currentAngle = startRad + (targetRad - startRad) * easeOut;
 
             const currentPositionRad = (-currentAngle - Math.PI / 2) % (2 * Math.PI);
-            const normalizedPos = currentPositionRad < 0 ? currentPositionRad + 2 * Math.PI : currentPositionRad;
+            let normalizedPos = currentPositionRad < 0 ? currentPositionRad + 2 * Math.PI : currentPositionRad;
 
             let closestPegDist = 2 * Math.PI;
             let currentPegIndex = 0;
@@ -277,10 +256,9 @@
                 }
             }
 
-            // カチカチ処理
             if (closestPegDist < 0.08) {
                 if (lastPassedPegIndex !== currentPegIndex) {
-                    playTickSound(); 
+                    playTickSound();
                     lastPassedPegIndex = currentPegIndex;
                 }
                 const tilt = (1 - (closestPegDist / 0.08)) * 25;
@@ -289,7 +267,7 @@
                 pin.style.transform = "translateX(-50%) rotate(0deg)";
             }
 
-            render(); 
+            render();
 
             if (t < 1) {
                 requestAnimationFrame(animate);
@@ -298,16 +276,16 @@
                 btn.disabled = false;
                 pin.style.transform = "translateX(-50%) rotate(0deg)";
                 setTimeout(() => {
-                    alert(おめでとう！ 今日の装備は「 ${itemsArray[winnerIndex].name} 」になりました！);
+                    alert(`おめでとう！今日の装備は「 ${itemsArray[winnerIndex].name} 」になりました！`);
                 }, 200);
             }
         }
 
         requestAnimationFrame(animate);
-
     }
-    
+
     loadData();
 </script>
+
 </body>
 </html>
