@@ -64,23 +64,21 @@
             ctx.fillStyle = colors[i % colors.length]; ctx.beginPath(); ctx.moveTo(0, 0);
             ctx.arc(0, 0, r, startAngle, startAngle + arc); ctx.lineTo(0, 0); ctx.fill();
             
-            // 💡【文字の表示改善】文字が潰れないように配置ルールを変更
             ctx.save(); 
             ctx.rotate(startAngle + arc / 2); 
             ctx.textAlign = "right"; 
             ctx.textBaseline = "middle";
             ctx.fillStyle = colors[i % colors.length] === '#ffe66d' ? "#333333" : "#ffffff";
             
-            // マスの数（細かさ）に応じてフォントサイズを自動調整（最小11px〜最大15px）
-            let fontSize = Math.max(11, Math.min(15, 200 / itemsArray.length));
+            // 💡【フォントの縮小】さらに小さく、見やすくなるようサイズ設定を縮小（最小9px〜最大12px）
+            let fontSize = Math.max(9, Math.min(12, 160 / itemsArray.length));
             ctx.font = "bold " + fontSize + "px sans-serif";
             
-            // 表示文字数の制限を「12文字」に拡大してできるだけ表示
             let txt = itemsArray[i].name.toString(); 
             if (txt.length > 12) txt = txt.substring(0, 11) + '…';
             
-            // 円盤のキワから文字が少し内側（r - 25）に収まるように位置を調整
-            ctx.fillText(txt, r - 25, 0); 
+            // 💡【位置の調整】文字サイズを小さくしたのに合わせて、釘に被らないよう少し内側（r - 35）へシフト
+            ctx.fillText(txt, r - 35, 0); 
             ctx.restore();
             
             ctx.save(); ctx.rotate(startAngle); ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.arc(r - 6, 2, 5, 0, 2 * Math.PI); ctx.fill();
@@ -124,7 +122,6 @@
             
             if (minDist < 0.08) { 
                 if (lastPeg !== pegIdx) { playTickSound(); lastPeg = pegIdx; } 
-                // 💡【ピンの動く向きを修正】傾く向きをマイナス（逆方向）にして、釘に弾かれるリアルな挙動に修正
                 pin.style.transform = `translateX(-50%) rotate(${-1 * (1 - (minDist / 0.08)) * 35}deg)`; 
             } else { 
                 pin.style.transform = "translateX(-50%) rotate(0deg)"; 
@@ -140,7 +137,7 @@
                 currentAngle = currentAngle % (2 * Math.PI);
                 
                 setTimeout(() => {
-                    alert(`おめでとう！ 今日の装備は「 ${itemsArray[winIdx].name} 」になりました！`);
+                    alert(`おめでとう！ 今日の装備は「 ${itemsArray[winIdx].name} 」に決定！`);
                 }, 100);
             }
         }
