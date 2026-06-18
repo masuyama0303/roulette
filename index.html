@@ -14,7 +14,6 @@
         button { background: #ff4757; color: white; border: none; padding: 14px 0; width: 220px; font-size: 18px; font-weight: bold; border-radius: 25px; cursor: pointer; margin-top: 15px; box-shadow: 0 4px 6px rgba(255,71,87,0.2); }
         button:disabled { background: #cccccc; cursor: not-allowed; box-shadow: none; }
     </style>
-    <script src="https://jsdelivr.net"></script>
 </head>
 <body>
 <div class="container">
@@ -23,7 +22,6 @@
         <svg class="pin" id="pin" viewBox="0 0 30 55"><path d="M0,0 L30,0 L15,55 Z" fill="#ff4757"/><circle cx="15" cy="4" r="3" fill="#ffffff"/></svg>
         <canvas id="roulette" width="340" height="340"></canvas>
     </div>
-    <!-- 💡変更点：ボタンの下にあったメッセージ表示エリア（div）を削除しました -->
     <button id="spin-btn" onclick="startSpin()" disabled>読み込み中...</button>
 </div>
 <script>
@@ -80,11 +78,6 @@
         ctx.restore();
     }
     
-    function launchCelebration() {
-        confetti({ particleCount: 120, spread: 70, origin: { x: 0, y: 0.8 } });
-        confetti({ particleCount: 120, spread: 70, origin: { x: 1, y: 0.8 } });
-    }
-    
     function startSpin() {
         if (isSpinning || itemsArray.length === 0) return;
         
@@ -127,14 +120,16 @@
             if (t < 1) {
                 requestAnimationFrame(animate);
             } else { 
+                // 💡改善点：アラートダイアログ（ポップアップ）が出る直前に、プログラムの状態をすべて完全にリセットする
                 isSpinning = false; 
                 document.getElementById('spin-btn').disabled = false; 
                 pin.style.transform = "translateX(-50%) rotate(0deg)"; 
-                
-                // 💡変更点：結果テキストの画面書き換え処理を消去し、純粋に紙吹雪の演出だけにしました
-                launchCelebration(); 
-                
                 currentAngle = currentAngle % (2 * Math.PI);
+                
+                // 💡100%確実に結果を知らせるブラウザ標準のダイアログに変更
+                setTimeout(() => {
+                    alert(`おめでとう！ 今日の装備は「 ${itemsArray[winIdx].name} 」になりました！`);
+                }, 100);
             }
         }
         requestAnimationFrame(animate);
