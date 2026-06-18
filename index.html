@@ -64,11 +64,24 @@
             ctx.fillStyle = colors[i % colors.length]; ctx.beginPath(); ctx.moveTo(0, 0);
             ctx.arc(0, 0, r, startAngle, startAngle + arc); ctx.lineTo(0, 0); ctx.fill();
             
-            ctx.save(); ctx.rotate(startAngle + arc / 2); ctx.textAlign = "right"; ctx.textBaseline = "middle";
+            // 💡【文字の表示改善】文字が潰れないように配置ルールを変更
+            ctx.save(); 
+            ctx.rotate(startAngle + arc / 2); 
+            ctx.textAlign = "right"; 
+            ctx.textBaseline = "middle";
             ctx.fillStyle = colors[i % colors.length] === '#ffe66d' ? "#333333" : "#ffffff";
-            ctx.font = "bold 15px sans-serif";
-            let txt = itemsArray[i].name.toString(); if (txt.length > 7) txt = txt.substring(0, 6) + '…';
-            ctx.fillText(txt, r - 30, 0); ctx.restore();
+            
+            // マスの数（細かさ）に応じてフォントサイズを自動調整（最小11px〜最大15px）
+            let fontSize = Math.max(11, Math.min(15, 200 / itemsArray.length));
+            ctx.font = "bold " + fontSize + "px sans-serif";
+            
+            // 表示文字数の制限を「12文字」に拡大してできるだけ表示
+            let txt = itemsArray[i].name.toString(); 
+            if (txt.length > 12) txt = txt.substring(0, 11) + '…';
+            
+            // 円盤のキワから文字が少し内側（r - 25）に収まるように位置を調整
+            ctx.fillText(txt, r - 25, 0); 
+            ctx.restore();
             
             ctx.save(); ctx.rotate(startAngle); ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.arc(r - 6, 2, 5, 0, 2 * Math.PI); ctx.fill();
             const grad = ctx.createRadialGradient(r - 8, -2, 1, r - 6, 0, 5); grad.addColorStop(0, '#ffffff'); grad.addColorStop(0.4, '#a0a0a0'); grad.addColorStop(1, '#404040');
@@ -88,7 +101,7 @@
         isSpinning = true;
         
         const res = new Uint32Array(1); window.crypto.getRandomValues(res);
-        const score = res[0] % totalWeight;
+        const score = res % totalWeight;
         
         let winIdx = 0, count = 0;
         for (let i = 0; i < itemsArray.length; i++) { count += itemsArray[i].weight; if (score < count) { winIdx = i; break; } }
@@ -111,7 +124,8 @@
             
             if (minDist < 0.08) { 
                 if (lastPeg !== pegIdx) { playTickSound(); lastPeg = pegIdx; } 
-                pin.style.transform = `translateX(-50%) rotate(${(1 - (minDist / 0.08)) * 35}deg)`; 
+                // 💡【ピンの動く向きを修正】傾く向きをマイナス（逆方向）にして、釘に弾かれるリアルな挙動に修正
+                pin.style.transform = `translateX(-50%) rotate(${-1 * (1 - (minDist / 0.08)) * 35}deg)`; 
             } else { 
                 pin.style.transform = "translateX(-50%) rotate(0deg)"; 
             }
@@ -120,13 +134,11 @@
             if (t < 1) {
                 requestAnimationFrame(animate);
             } else { 
-                // 💡改善点：アラートダイアログ（ポップアップ）が出る直前に、プログラムの状態をすべて完全にリセットする
                 isSpinning = false; 
                 document.getElementById('spin-btn').disabled = false; 
                 pin.style.transform = "translateX(-50%) rotate(0deg)"; 
                 currentAngle = currentAngle % (2 * Math.PI);
                 
-                // 💡100%確実に結果を知らせるブラウザ標準のダイアログに変更
                 setTimeout(() => {
                     alert(`おめでとう！ 今日の装備は「 ${itemsArray[winIdx].name} 」になりました！`);
                 }, 100);
