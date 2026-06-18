@@ -64,21 +64,27 @@
             ctx.fillStyle = colors[i % colors.length]; ctx.beginPath(); ctx.moveTo(0, 0);
             ctx.arc(0, 0, r, startAngle, startAngle + arc); ctx.lineTo(0, 0); ctx.fill();
             
+            // 💡【文字の描画仕様を根本から変更】
             ctx.save(); 
             ctx.rotate(startAngle + arc / 2); 
-            ctx.textAlign = "right"; 
+            
+            // 基準位置を「左側（文字の開始地点）」に変更し、中心から35px空けたところから書き始める
+            ctx.textAlign = "left"; 
             ctx.textBaseline = "middle";
             ctx.fillStyle = colors[i % colors.length] === '#ffe66d' ? "#333333" : "#ffffff";
             
-            // 💡【フォントの縮小】さらに小さく、見やすくなるようサイズ設定を縮小（最小9px〜最大12px）
-            let fontSize = Math.max(9, Math.min(12, 160 / itemsArray.length));
+            // マスの細かさに応じた自動フォントサイズ（少し大きめの12px〜16pxに向上）
+            let fontSize = Math.max(12, Math.min(16, 220 / itemsArray.length));
             ctx.font = "bold " + fontSize + "px sans-serif";
             
             let txt = itemsArray[i].name.toString(); 
-            if (txt.length > 12) txt = txt.substring(0, 11) + '…';
             
-            // 💡【位置の調整】文字サイズを小さくしたのに合わせて、釘に被らないよう少し内側（r - 35）へシフト
-            ctx.fillText(txt, r - 35, 0); 
+            // 💡中心から35pxの位置に移動させ、外枠（r - 15pxの釘の手前まで）にまっすぐ文字を流す
+            ctx.translate(35, 0);
+            
+            // 外枠ギリギリで文字が切れるよう、最大12文字までに制限
+            if (txt.length > 12) txt = txt.substring(0, 11) + '…';
+            ctx.fillText(txt, 0, 0); 
             ctx.restore();
             
             ctx.save(); ctx.rotate(startAngle); ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.arc(r - 6, 2, 5, 0, 2 * Math.PI); ctx.fill();
